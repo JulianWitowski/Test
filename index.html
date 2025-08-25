@@ -620,6 +620,19 @@ function csvCell(v){
   return /[",\n]/.test(s) ? `"${s}"` : s;
 }
 </script>
+
+<!-- Polyfill so Settings dialog works on all browsers -->
+<script src="https://unpkg.com/dialog-polyfill@0.5.6/dist/dialog-polyfill.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/dialog-polyfill@0.5.6/dist/dialog-polyfill.css" />
+<script>
+  // Register polyfill if browser doesn’t support <dialog>
+  document.querySelectorAll('dialog').forEach(d => {
+    if (typeof d.showModal !== 'function') {
+      dialogPolyfill.registerDialog(d);
+    }
+  });
+</script>
 </body>
 </html>
+
 
