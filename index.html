@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Maintenance Stop Logger • Shopfloor UI</title>
+<style>
+  :root{
+    --bg:#0B1220;            /* canvas */
+    --panel:#111A2C;         /* cards */
+    --ink:#E8F1FF;           /* text */
+    --muted:#91A3C0;         /* secondary text */
+    --accent:#6EA8FF;        /* primary */
+    --accent-2:#3DDAB4;      /* success */
+    --warn:#FFB457;          /* warning */
+    --danger:#FF6B6B;        /* danger */
+    --line:#213250;          /* hairline */
+    --chip:#162338;          /* chip bg */
+    --field:#101A2A;         /* input bg */
+    --field-border:#2A3B5C;  /* input border */
+    --shadow:0 10px 30px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; background:linear-gradient(180deg,#0A1020,#0B1220 40%,#0B1220); color:var(--ink);
+    font:16px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Inter, "Helvetica Neue", Arial;
+  }
+  header{
+    position:sticky; top:0; z-index:50; backdrop-filter:saturate(1.2) blur(6px);
+    background:linear-gradient(180deg,rgba(10,16,32,.9),rgba(10,16,32,.75));
+    border-bottom:1px solid var(--line);
+  }
+  .wrap{max-width:1200px; margin:0 auto; padding:14px 20px;}
+  .bar{display:flex; gap:12px; align-items:center; justify-content:space-between}
+  .brand{display:flex; gap:12px; align-items:center}
+  .brand .logo{width:34px; height:34px; display:grid; place-items:center; border-radius:10px; background:radial-gradient(100% 100% at 50% 0%, #64B6FF 0%, #6EA8FF 40%, #3D68FF 100%); box-shadow:var(--shadow)}
+  h1{font-size:18px; margin:0}
+  .pill{padding:6px 10px; border-radius:999px; background:var(--chip); border:1px solid var(--line); font-size:12px; color:var(--muted)}
+  .actions{display:flex; gap:8px; align-items:center}
+  button,.btn{appearance:none; border:none; border-radius:12px; padding:10px 14px; background:var(--accent); color:#0B1220; font-weight:650; cursor:pointer; box-shadow:var(--shadow); transition:.2s ease;}
+  button.secondary{background:#162742; color:var(--ink); border:1px solid var(--line); box-shadow:none}
+  button.ghost{background:transparent; color:var(--ink); border:1px solid var(--line); box-shadow:none}
+  button.warn{background:var(--warn)}
+  button.good{background:var(--accent-2)}
+  button.danger{background:var(--danger)}
+  button:disabled{opacity:.5; cursor:not-allowed}
+  button:hover{transform:translateY(-1px)}
+
+  main{max-width:1200px; margin:18px auto 80px; padding:0 20px; display:grid; grid-template-columns: 1.15fr .85fr; gap:16px}
+  @media (max-width: 980px){ main{grid-template-columns:1fr;}}
+
+  .card{background:linear-gradient(180deg,#101A2A,#0E1929); border:1px solid var(--line); border-radius:20px; box-shadow:var(--shadow)}
+  .card h2{margin:0 0 10px; font-size:18px}
+  .card .head{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:14px 16px; border-bottom:1px solid var(--line)}
+  .card .body{padding:14px 16px}
+
+  .grid{display:grid; grid-template-columns: repeat(12,1fr); gap:12px}
+  .col-6{grid-column: span 6}
+  .col-4{grid-column: span 4}
+  .col-3{grid-column: span 3}
+  .col-8{grid-column: span 8}
+  .col-12{grid-column: span 12}
+  @media (max-width:720px){ .col-6,.col-4,.col-3,.col-8{grid-column:span 12} }
+
+  label{display:block; font-size:12px; letter-spacing:.25px; color:var(--muted); margin:0 0 6px 2px}
+  input,select,textarea{width:100%; padding:12px 12px; border-radius:12px; background:var(--field); border:1px solid var(--field-border); color:var(--ink); outline:none}
+  textarea{min-height:84px; resize:vertical}
+  input:focus,select:focus,textarea:focus{border-color:#3D68FF; box-shadow:0 0 0 3px rgba(61,104,255,.25)}
+
+  .chips{display:flex; gap:8px; flex-wrap:wrap}
+  .chip{padding:8px 10px; border-radius:999px; background:var(--chip); border:1px solid var(--line); cursor:pointer; font-size:13px}
+  .chip.active{background:#1D2C47; border-color:#3D68FF}
+
+  .row{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+  .grow{flex:1}
+  .right{margin-left:auto}
+  .note{font-size:12px; color:var(--muted)}
+
+  table{width:100%; border-collapse:collapse}
+  th,td{padding:12px; text-align:left; border-bottom:1px solid var(--line); vertical-align:top}
+  th{font-size:12px; color:var(--muted); font-weight:600}
+  tr:hover td{background:#111C2F}
+  .status{display:inline-flex; align-items:center; gap:6px; font-size:12px; padding:4px 8px; border-radius:999px; border:1px solid var(--line); background:var(--chip)}
+  .status.unsent{color:#FFB457}
+  .status.sent{color:#3DDAB4}
+
+  .kbd{font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background:var(--chip); border:1px solid var(--line); padding:2px 6px; border-radius:6px; font-size:12px}
+
+  dialog{background:linear-gradient(180deg,#101A2A,#0E1929); color:var(--ink); border:1px solid var(--line); border-radius:16px; width:min(640px,92vw); box-shadow:var(--shadow)}
+  dialog::backdrop{background:rgba(0,0,0,.5)}
+
+  .toast{position:fixed; bottom:18px; left:50%; transform:translateX(-50%); background:#0F1A2C; padding:12px 16px; border-radius:12px; border:1px solid var(--line); box-shadow:var(--shadow); display:none}
+
+  .mono{font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:12px}
+</style>
+</head>
+<body>
+  <header>
+    <div class="wrap bar">
+      <div class="brand">
+        <div class="logo" aria-hidden="true">🔧</div>
+        <div>
+          <h1>Maintenance Stop Logger</h1>
+          <div class="pill">Paperless ▸ Categorize ▸ Dispatch to Teams ▸ Export</div>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="secondary" id="btn-settings" title="Configure">Settings</button>
+        <button class="ghost" id="btn-export" title="Export CSV">Export CSV</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- Left: Capture form -->
+    <section class="card" aria-labelledby="captureTitle">
+      <div class="head">
+        <h2 id="captureTitle">Capture Stop</h2>
+        <div class="row">
+          <button id="btn-start" class="secondary">Start Down (⏱)</button>
+          <button id="btn-stop" class="warn">Stop / Resume</button>
+          <button id="btn-save" class="good">Save Entry</button>
+        </div>
+      </div>
+      <div class="body">
+        <form id="stopForm" class="grid" autocomplete="off">
+          <div class="col-3">
+            <label>Plant</label>
+            <select id="plant" required></select>
+          </div>
+          <div class="col-3">
+            <label>Line</label>
+            <select id="line" required></select>
+          </div>
+          <div class="col-3">
+            <label>Machine</label>
+            <select id="machine" required></select>
+          </div>
+          <div class="col-3">
+            <label>Operator</label>
+            <input id="operator" placeholder="e.g., JW" />
+          </div>
+
+          <div class="col-4">
+            <label>Category</label>
+            <select id="category" required></select>
+          </div>
+          <div class="col-4">
+            <label>Sub‑Category</label>
+            <select id="subcategory" required></select>
+          </div>
+          <div class="col-4">
+            <label>Reason</label>
+            <select id="reason" required></select>
+          </div>
+
+          <div class="col-12">
+            <label>Notes (free text)</label>
+            <textarea id="notes" placeholder="Context, 5-Why, part #, error code…"></textarea>
+          </div>
+
+          <div class="col-3">
+            <label>Start</label>
+            <input id="startTime" type="datetime-local" required />
+          </div>
+          <div class="col-3">
+            <label>End</label>
+            <input id="endTime" type="datetime-local" />
+          </div>
+          <div class="col-3">
+            <label>Duration (min)</label>
+            <input id="minutes" type="number" min="0" step="1" inputmode="numeric" placeholder="auto" />
+          </div>
+          <div class="col-3">
+            <label>Severity</label>
+            <select id="severity">
+              <option>Low</option>
+              <option>Medium</option>
+              <option>High</option>
+              <option>Critical</option>
+            </select>
+          </div>
+
+          <div class="col-12">
+            <label>Quick Reasons</label>
+            <div id="quickReasons" class="chips" role="list"></div>
+          </div>
+
+          <div class="col-6">
+            <label>Actions Taken</label>
+            <input id="actions" placeholder="e.g., Reset PLC; Replaced belt; Called vendor" />
+          </div>
+          <div class="col-6">
+            <label>Attachments</label>
+            <input id="files" type="file" accept="image/*,.pdf" capture="environment" multiple />
+            <div class="note">Tip: Snap a photo of the HMI / fault code.</div>
+          </div>
+        </form>
+        <div class="note" style="margin-top:10px">Fields with time auto-calc: if <span class="kbd">End</span> is set, <span class="kbd">Duration</span> will compute; or enter <span class="kbd">Duration</span> to back‑fill <span class="kbd">End</span>.</div>
+      </div>
+    </section>
+
+    <!-- Right: Queue & dispatch -->
+    <aside class="card" aria-labelledby="queueTitle">
+      <div class="head">
+        <h2 id="queueTitle">Queue & Dispatch</h2>
+        <div class="row">
+          <button id="btn-send-selected">Send Selected</button>
+          <button id="btn-copy-json" class="secondary">Copy JSON</button>
+        </div>
+      </div>
+      <div class="body">
+        <table id="queueTable" aria-describedby="queueHelp">
+          <thead>
+            <tr>
+              <th><input type="checkbox" id="chkAll" title="Select all" /></th>
+              <th>Status</th>
+              <th>When</th>
+              <th>Asset</th>
+              <th>Cat / Reason</th>
+              <th>Min</th>
+              <th>Who</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <div id="queueHelp" class="note" style="margin-top:10px">Unsent entries persist locally. Configure the Teams webhook in <b>Settings</b>. If your browser blocks cross‑origin posts, use <b>Copy JSON</b> / <b>Export CSV</b> as fallback.</div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- Settings modal -->
+  <dialog id="settings">
+    <form method="dialog" class="body" style="padding:18px">
+      <h3 style="margin:0 0 12px">Settings</h3>
+      <div class="grid">
+        <div class="col-12"><label>Organization</label><input id="org" placeholder="Company / Site" /></div>
+        <div class="col-12"><label>Microsoft Teams Incoming Webhook URL</label><input id="teamsWebhook" placeholder="https://outlook.office.com/webhook/…" /></div>
+        <div class="col-6"><label>Default Plant</label><input id="defPlant" placeholder="e.g., Berlin" /></div>
+        <div class="col-6"><label>Default Line</label><input id="defLine" placeholder="e.g., SMT-03" /></div>
+        <div class="col-12"><label>Machines (comma separated)</label><input id="defMachines" placeholder="Printer-1, Pick&Place-A, Reflow-2" /></div>
+      </div>
+      <div class="row" style="margin-top:14px">
+        <button value="cancel" class="ghost">Close</button>
+        <button id="btn-save-settings">Save</button>
+      </div>
+      <p class="note" style="margin-top:10px">Webhook note: Teams incoming webhooks may block direct browser POSTs (CORS). If so, post via a small proxy or use <b>Copy JSON</b>/CSV and share manually.</p>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast"></div>
+
+<script>
+// ---------- Data dictionaries ----------
+const CATS = {
+  "Electrical": {
+    "PLC/Controls": ["PLC fault", "Sensor misaligned", "I/O module fault", "Emergency stop"],
+    "Drives/Motors": ["Motor overheated", "VFD fault", "Encoder failure"],
+    "Power": ["Breaker trip", "Power drop", "Loose wiring"]
+  },
+  "Mechanical": {
+    "Conveyance": ["Belt jam", "Chain mis-track", "Bearing failure"],
+    "Tooling": ["Fixture damage", "Tool wear", "Alignment"]
+  },
+  "Materials": {
+    "Supply": ["No material", "Wrong material", "Late delivery"],
+    "Quality": ["Incoming defect", "Lot quarantine"]
+  },
+  "Setup/Changeover": { "SMED": ["Program load", "Nozzle change", "Feeder setup"] },
+  "IT/Network": { "Connectivity": ["MES down", "Network drop", "Server unreachable"] },
+  "Safety": { "Incident": ["Near miss", "Guard open", "Spill"] },
+  "Preventive": { "PM": ["Scheduled PM", "Calibration", "Inspection"] },
+  "Operator Availability": { "Staffing": ["Break", "Training", "Meeting"] }
+};
+
+const QUICK = [
+  "No material", "PLC fault", "Sensor misaligned", "Belt jam", "MES down", "Program load", "Near miss"
+];
+
+// ---------- State & storage ----------
+const LS = {
+  settings: 'msl.settings.v1',
+  queue:    'msl.queue.v1'
+};
+
+let settings = loadSettings();
+let queue = loadQueue();
+
+// ---------- Elements ----------
+const els = {
+  plant: byId('plant'),
+  line: byId('line'),
+  machine: byId('machine'),
+  operator: byId('operator'),
+  category: byId('category'),
+  subcategory: byId('subcategory'),
+  reason: byId('reason'),
+  notes: byId('notes'),
+  start: byId('startTime'),
+  end: byId('endTime'),
+  minutes: byId('minutes'),
+  severity: byId('severity'),
+  actions: byId('actions'),
+  files: byId('files'),
+  quick: byId('quickReasons'),
+  queueTable: byId('queueTable').querySelector('tbody'),
+  chkAll: byId('chkAll'),
+  toast: byId('toast'),
+  settingsDlg: byId('settings'),
+  org: byId('org'),
+  teamsWebhook: byId('teamsWebhook'),
+  defPlant: byId('defPlant'),
+  defLine: byId('defLine'),
+  defMachines: byId('defMachines'),
+};
+
+// ---------- Init ----------
+boot();
+function boot(){
+  // Populate selects
+  populateCategory();
+  populateQuick();
+  hydrateFromSettings();
+  hydrateAssets();
+  // Set default times
+  setNow(els.start); setNow(els.end);
+  // Events
+  els.category.addEventListener('change', populateSubcategory);
+  els.subcategory.addEventListener('change', populateReason);
+  els.start.addEventListener('change', recalc);
+  els.end.addEventListener('change', recalc);
+  els.minutes.addEventListener('input', backfillEndFromMinutes);
+
+  byId('btn-start').addEventListener('click', onStartDown);
+  byId('btn-stop').addEventListener('click', onStopResume);
+  byId('btn-save').addEventListener('click', onSave);
+  byId('btn-send-selected').addEventListener('click', sendSelected);
+  byId('btn-copy-json').addEventListener('click', copyJSON);
+  byId('btn-settings').addEventListener('click', () => els.settingsDlg.showModal());
+  byId('btn-save-settings').addEventListener('click', saveSettings);
+  byId('btn-export').addEventListener('click', exportCSV);
+  els.chkAll.addEventListener('change', e => {
+    document.querySelectorAll('tbody input[type=checkbox]').forEach(cb => cb.checked = e.target.checked);
+  });
+  renderQueue();
+}
+
+// ---------- UI helpers ----------
+function byId(id){ return document.getElementById(id); }
+function setNow(el){
+  const now = new Date();
+  now.setSeconds(0,0);
+  el.value = toLocalInputDateTime(now);
+}
+function toLocalInputDateTime(d){
+  // yyyy-mm-ddThh:mm
+  const pad = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function fromLocalInputDateTime(v){ return v ? new Date(v) : null; }
+function minutesDiff(a,b){ return Math.max(0, Math.round((b-a)/60000)); }
+function toast(msg){
+  els.toast.textContent = msg; els.toast.style.display = 'block';
+  setTimeout(()=> els.toast.style.display='none', 2200);
+}
+
+// ---------- Populate dictionaries ----------
+function populateCategory(){
+  els.category.innerHTML = `<option value="" disabled selected>Select…</option>` +
+    Object.keys(CATS).map(c=>`<option>${c}</option>`).join('');
+  populateSubcategory();
+}
+function populateSubcategory(){
+  const cat = els.category.value;
+  const subs = cat ? Object.keys(CATS[cat]) : [];
+  els.subcategory.innerHTML = subs.map(s=>`<option>${s}</option>`).join('');
+  populateReason();
+}
+function populateReason(){
+  const cat = els.category.value; const sub = els.subcategory.value;
+  const reasons = (CATS[cat] && CATS[cat][sub]) ? CATS[cat][sub] : [];
+  els.reason.innerHTML = reasons.map(r=>`<option>${r}</option>`).join('') + `<option>— Other (free text) —</option>`;
+}
+function populateQuick(){
+  els.quick.innerHTML = QUICK.map(q=>`<button type="button" class="chip" data-q="${q}">${q}</button>`).join('');
+  els.quick.querySelectorAll('button').forEach(btn=> btn.addEventListener('click', ()=>{
+    // inject quick reason into Reason or Notes if Other
+    const r = btn.dataset.q;
+    if([...els.reason.options].some(o=>o.text===r)){
+      els.reason.value = r;
+    } else {
+      els.reason.value = '— Other (free text) —';
+      els.notes.value = `${els.notes.value ? els.notes.value+"\n" : ''}Reason: ${r}`.trim();
+    }
+    btn.classList.add('active'); setTimeout(()=>btn.classList.remove('active'),500);
+  }));
+}
+
+// ---------- Settings ----------
+function loadSettings(){
+  try{ return JSON.parse(localStorage.getItem(LS.settings)) || {}; }catch{return {} }
+}
+function saveSettings(ev){
+  ev?.preventDefault();
+  settings.org = els.org.value.trim();
+  settings.webhook = els.teamsWebhook.value.trim();
+  settings.defPlant = els.defPlant.value.trim();
+  settings.defLine = els.defLine.value.trim();
+  settings.machines = els.defMachines.value.split(',').map(s=>s.trim()).filter(Boolean);
+  localStorage.setItem(LS.settings, JSON.stringify(settings));
+  hydrateAssets(); toast('Settings saved');
+}
+function hydrateFromSettings(){
+  els.org.value = settings.org || '';
+  els.teamsWebhook.value = settings.webhook || '';
+  els.defPlant.value = settings.defPlant || '';
+  els.defLine.value = settings.defLine || '';
+  els.defMachines.value = (settings.machines||[]).join(', ');
+}
+function hydrateAssets(){
+  // Plants, lines as free text lists but keep last used defaults
+  const plantVal = settings.defPlant || settings.lastPlant || '';
+  const lineVal = settings.defLine || settings.lastLine || '';
+  const plants = Array.from(new Set([plantVal].filter(Boolean)));
+  const lines = Array.from(new Set([lineVal].filter(Boolean)));
+  const machines = settings.machines && settings.machines.length ? settings.machines : ["Machine-1","Machine-2","Machine-3"];
+
+  els.plant.innerHTML = plants.length ? plants.map(v=>`<option>${v}</option>`).join('') : `<option></option>`;
+  els.line.innerHTML = lines.length ? lines.map(v=>`<option>${v}</option>`).join('') : `<option></option>`;
+  els.machine.innerHTML = machines.map(v=>`<option>${v}</option>`).join('');
+}
+
+// ---------- Time calculations ----------
+function recalc(){
+  const s = fromLocalInputDateTime(els.start.value);
+  const e = fromLocalInputDateTime(els.end.value);
+  if(s && e){ els.minutes.value = minutesDiff(s,e); }
+}
+function backfillEndFromMinutes(){
+  const s = fromLocalInputDateTime(els.start.value);
+  const m = parseInt(els.minutes.value,10);
+  if(s && !isNaN(m)){
+    const e = new Date(s.getTime() + m*60000);
+    els.end.value = toLocalInputDateTime(e);
+  }
+}
+
+// ---------- Start/Stop UX ----------
+function onStartDown(){
+  setNow(els.start);
+  els.end.value = '';
+  els.minutes.value = '';
+  toast('Down started');
+}
+function onStopResume(){
+  if(!els.end.value){ setNow(els.end); recalc(); toast('Down stopped'); }
+  else { els.end.value=''; els.minutes.value=''; toast('Resumed (end cleared)'); }
+}
+
+// ---------- Save entry ----------
+async function onSave(){
+  const entry = collectEntry();
+  const missing = validate(entry);
+  if(missing.length){ return toast('Missing: '+missing.join(', ')); }
+  queue.unshift(entry);
+  persistQueue();
+  renderQueue();
+  settings.lastPlant = entry.plant; settings.lastLine = entry.line; localStorage.setItem(LS.settings, JSON.stringify(settings));
+  // reset light
+  els.notes.value = ''; els.actions.value = ''; els.files.value='';
+  toast('Saved to local queue');
+}
+
+function collectEntry(){
+  const s = fromLocalInputDateTime(els.start.value);
+  const e = fromLocalInputDateTime(els.end.value);
+  const minutes = els.minutes.value ? parseInt(els.minutes.value,10) : (s && e ? minutesDiff(s,e) : 0);
+  const id = 'E'+Date.now().toString(36);
+  const files = els.files.files ? [...els.files.files].map(f=>({name:f.name, size:f.size, type:f.type})) : [];
+  return {
+    id,
+    org: settings.org || '',
+    plant: els.plant.value.trim(),
+    line: els.line.value.trim(),
+    machine: els.machine.value.trim(),
+    operator: els.operator.value.trim(),
+    category: els.category.value,
+    subcategory: els.subcategory.value,
+    reason: els.reason.value,
+    notes: els.notes.value.trim(),
+    actions: els.actions.value.trim(),
+    severity: els.severity.value,
+    start: s ? s.toISOString() : null,
+    end: e ? e.toISOString() : null,
+    minutes: minutes || 0,
+    attachments: files,
+    status: 'unsent',
+    createdAt: new Date().toISOString()
+  };
+}
+function validate(e){
+  const miss=[];
+  if(!e.plant) miss.push('Plant');
+  if(!e.line) miss.push('Line');
+  if(!e.machine) miss.push('Machine');
+  if(!e.category) miss.push('Category');
+  if(!e.subcategory) miss.push('Sub‑Category');
+  if(!e.reason) miss.push('Reason');
+  if(!e.start) miss.push('Start');
+  if(!e.end && !e.minutes) miss.push('End or Duration');
+  return miss;
+}
+
+function persistQueue(){ localStorage.setItem(LS.queue, JSON.stringify(queue)); }
+function loadQueue(){ try{ return JSON.parse(localStorage.getItem(LS.queue)) || [] }catch{ return [] } }
+
+function renderQueue(){
+  const tb = els.queueTable; tb.innerHTML = '';
+  if(!queue.length){ tb.innerHTML = `<tr><td colspan="8" class="note">No entries yet. Capture a stop and click <b>Save Entry</b>.</td></tr>`; return; }
+  for(const e of queue){
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input type="checkbox" data-id="${e.id}"></td>
+      <td><span class="status ${e.status==='sent'?'sent':'unsent'}">${e.status}</span></td>
+      <td>${fmtWhen(e.start)}<div class="note mono">${e.minutes} min</div></td>
+      <td><b>${escapeHtml(e.machine)}</b><div class="note">${escapeHtml(e.plant)} ▸ ${escapeHtml(e.line)}</div></td>
+      <td>${escapeHtml(e.category)} / <b>${escapeHtml(e.reason)}</b><div class="note">${escapeHtml(e.subcategory)}</div></td>
+      <td>${e.minutes}</td>
+      <td>${escapeHtml(e.operator||'')}</td>
+      <td class="right">
+        <button class="secondary" data-edit="${e.id}">Edit</button>
+        <button data-send="${e.id}">Send</button>
+        <button class="danger" data-del="${e.id}">Delete</button>
+      </td>`;
+    tb.appendChild(tr);
+  }
+  // bind row actions
+  tb.querySelectorAll('button[data-del]').forEach(btn=> btn.addEventListener('click', ()=> delEntry(btn.dataset.del)));
+  tb.querySelectorAll('button[data-send]').forEach(btn=> btn.addEventListener('click', ()=> sendOne(btn.dataset.send)));
+  tb.querySelectorAll('button[data-edit]').forEach(btn=> btn.addEventListener('click', ()=> editEntry(btn.dataset.edit)));
+}
+
+function fmtWhen(iso){ const d = iso? new Date(iso): new Date(); return d.toLocaleString(); }
+function escapeHtml(s){ return (s||'').replace(/[&<>\"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'})[c]); }
+
+function delEntry(id){
+  queue = queue.filter(q=> q.id!==id); persistQueue(); renderQueue(); toast('Deleted');
+}
+
+function editEntry(id){
+  const e = queue.find(x=>x.id===id); if(!e) return;
+  // load into form
+  if(e.plant) ensureOption(els.plant, e.plant);
+  if(e.line) ensureOption(els.line, e.line);
+  if(e.machine) ensureOption(els.machine, e.machine);
+  els.plant.value = e.plant; els.line.value = e.line; els.machine.value = e.machine;
+  els.operator.value = e.operator||'';
+  els.category.value = e.category; populateSubcategory();
+  els.subcategory.value = e.subcategory; populateReason();
+  els.reason.value = e.reason;
+  els.notes.value = e.notes||''; els.actions.value = e.actions||''; els.severity.value = e.severity||'Medium';
+  els.start.value = e.start ? toLocalInputDateTime(new Date(e.start)) : '';
+  els.end.value = e.end ? toLocalInputDateTime(new Date(e.end)) : '';
+  els.minutes.value = e.minutes||'';
+  toast('Loaded into form for editing');
+}
+function ensureOption(sel, val){ if(![...sel.options].some(o=>o.value===val)){ sel.insertAdjacentHTML('beforeend', `<option>${escapeHtml(val)}</option>`); }}
+
+// ---------- Dispatch ----------
+async function sendOne(id){
+  const e = queue.find(x=>x.id===id); if(!e) return;
+  if(!settings.webhook){ toast('Set Teams webhook in Settings'); return; }
+
+  const payload = toTeamsPayload(e);
+  try{
+    const res = await fetch(settings.webhook, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+    if(!res.ok){ throw new Error('HTTP '+res.status); }
+    e.status = 'sent'; persistQueue(); renderQueue(); toast('Sent to Teams');
+  }catch(err){
+    console.warn('Teams post failed', err);
+    // Likely CORS; fall back: copy JSON to clipboard
+    await navigator.clipboard.writeText(JSON.stringify(payload, null, 2)).catch(()=>{});
+    toast('Couldn\'t POST (CORS?). Payload copied to clipboard.');
+  }
+}
+
+async function sendSelected(){
+  const ids = [...document.querySelectorAll('tbody input[type=checkbox]:checked')].map(cb=>cb.dataset.id);
+  for(const id of ids){ await sendOne(id); }
+}
+
+function toTeamsPayload(e){
+  // Simple Office 365 Connector Card (incoming webhook)
+  const title = `[${e.severity}] ${e.category} - ${e.reason}`;
+  const text = `**Asset:** ${e.machine}  \n**Line:** ${e.line}  \n**Plant:** ${e.plant}  \n**When:** ${fmtWhen(e.start)}  \n**Duration:** ${e.minutes} min  \n**Operator:** ${e.operator||'-'}  \n**Actions:** ${e.actions||'-'}  \n**Notes:** ${e.notes||'-'}  \n**ID:** ${e.id}`;
+  return { text: `**${title}**\n\n${text}` };
+}
+
+async function copyJSON(){
+  const json = JSON.stringify(queue, null, 2);
+  await navigator.clipboard.writeText(json).catch(()=>{});
+  toast('Queue JSON copied');
+}
+
+// ---------- Export CSV ----------
+function exportCSV(){
+  if(!queue.length){ toast('Nothing to export'); return; }
+  const headers = ["id","org","plant","line","machine","operator","category","subcategory","reason","notes","actions","severity","start","end","minutes","status","createdAt"];
+  const rows = [headers.join(',')].concat(queue.map(e=> headers.map(h=> csvCell(e[h])).join(',')));
+  const blob = new Blob([rows.join('\n')], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = Object.assign(document.createElement('a'), {href:url, download:`maintenance-stops_${new Date().toISOString().slice(0,10)}.csv`});
+  a.click(); setTimeout(()=> URL.revokeObjectURL(url), 5000);
+}
+function csvCell(v){
+  if(v==null) return '';
+  const s = String(v).replace(/"/g,'""');
+  return /[",\n]/.test(s) ? `"${s}"` : s;
+}
+</script>
+</body>
+</html>
