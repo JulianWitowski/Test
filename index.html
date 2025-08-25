@@ -289,36 +289,59 @@ let settings = loadSettings();
 let queue = loadQueue();
 
 // ---------- Elements ----------
-const els = {
-  plant: byId('plant'),
-  line: byId('line'),
-  machine: byId('machine'),
-  operator: byId('operator'),
-  category: byId('category'),
-  subcategory: byId('subcategory'),
-  reason: byId('reason'),
-  notes: byId('notes'),
-  start: byId('startTime'),
-  end: byId('endTime'),
-  minutes: byId('minutes'),
-  severity: byId('severity'),
-  actions: byId('actions'),
-  files: byId('files'),
-  quick: byId('quickReasons'),
-  queueTable: byId('queueTable').querySelector('tbody'),
-  chkAll: byId('chkAll'),
-  toast: byId('toast'),
-  settingsDlg: byId('settings'),
-  org: byId('org'),
-  teamsWebhook: byId('teamsWebhook'),
-  defPlant: byId('defPlant'),
-  defLine: byId('defLine'),
-  defMachines: byId('defMachines'),
-};
+let els = {};
 
 // ---------- Init ----------
-boot();
+document.addEventListener('DOMContentLoaded', boot);
+
 function boot(){
+  // Build element map now that DOM is ready
+  els = {
+    plant: byId('plant'),
+    line: byId('line'),
+    machine: byId('machine'),
+    operator: byId('operator'),
+    category: byId('category'),
+    subcategory: byId('subcategory'),
+    reason: byId('reason'),
+    notes: byId('notes'),
+    start: byId('startTime'),
+    end: byId('endTime'),
+    minutes: byId('minutes'),
+    severity: byId('severity'),
+    actions: byId('actions'),
+    files: byId('files'),
+    quick: byId('quickReasons'),
+    queueTable: byId('queueTable').querySelector('tbody'),
+    chkAll: byId('chkAll'),
+    toast: byId('toast'),
+    settingsDlg: byId('settings'),
+    org: byId('org'),
+    teamsWebhook: byId('teamsWebhook'),
+    defPlant: byId('defPlant'),
+    defLine: byId('defLine'),
+    defMachines: byId('defMachines'),
+  };
+
+  // Polyfill <dialog> if needed
+  if (els.settingsDlg && typeof els.settingsDlg.showModal !== 'function' && window.dialogPolyfill) {
+    dialogPolyfill.registerDialog(els.settingsDlg);
+  }
+
+  // Wire the Settings button to open the dialog (with fallback)
+  const settingsBtn = byId('btn-settings');
+  if (settingsBtn && els.settingsDlg) {
+    settingsBtn.addEventListener('click', () => {
+      try {
+        if (typeof els.settingsDlg.showModal === 'function') els.settingsDlg.showModal();
+        else els.settingsDlg.setAttribute('open',''); // fallback open
+      } catch {
+        els.settingsDlg.setAttribute('open',''); // fallback
+      }
+    });
+  }
+
+  // ---- your existing boot logic below ----
   // Populate selects
   populateCategory();
   populateQuick();
@@ -338,12 +361,19 @@ function boot(){
   byId('btn-save').addEventListener('click', onSave);
   byId('btn-send-selected').addEventListener('click', sendSelected);
   byId('btn-copy-json').addEventListener('click', copyJSON);
-  byId('btn-settings').addEventListener('click', () => els.settingsDlg.showModal());
-  byId('btn-save-settings').addEventListener('click', saveSettings);
   byId('btn-export').addEventListener('click', exportCSV);
+
+  // Open/Save settings
+  byId('btn-settings').addEventListener('click', () => {
+    if (typeof els.settingsDlg.showModal === 'function') els.settingsDlg.showModal();
+    else els.settingsDlg.setAttribute('open','');
+  });
+  byId('btn-save-settings').addEventListener('click', saveSettings);
+
   els.chkAll.addEventListener('change', e => {
     document.querySelectorAll('tbody input[type=checkbox]').forEach(cb => cb.checked = e.target.checked);
   });
+
   renderQueue();
 }
 
@@ -634,5 +664,6 @@ function csvCell(v){
 </script>
 </body>
 </html>
+
 
 
