@@ -575,7 +575,7 @@ async function sendOne(id){
 
   const payload = toTeamsPayload(e);
   try{
-    const res = await fetch(settings.webhook, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+    const res = await fetch(settings.webhook, {method:'POST',  headers:{'Content-Type':'application/json'},  body: JSON.stringify(e)   // send the full entry });
     if(!res.ok){ throw new Error('HTTP '+res.status); }
     e.status = 'sent'; persistQueue(); renderQueue(); toast('Sent to Teams');
   }catch(err){
@@ -622,3 +622,4 @@ function csvCell(v){
 </script>
 </body>
 </html>
+
